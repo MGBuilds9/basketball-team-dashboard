@@ -36,7 +36,7 @@ routine source path.
 - exact two-team local game books
 - zero console errors and zero runtime data requests
 - one-file budget: approximately 1.11 MiB HTML and 220 KiB gzipped JavaScript
-- production release gate: GitHub Actions run `30421555400`
+- first full production release gate: GitHub Actions run `30421555400`
 - no-change live sync proof: GitHub Actions run `30421675547`
 
 ## Source anomaly
