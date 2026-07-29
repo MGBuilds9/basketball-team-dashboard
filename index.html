@@ -2,12 +2,48 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>vite-app</title>
+    <meta name="theme-color" content="#050b12" />
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%231d71b8'/%3E%3Ctext x='32' y='43' text-anchor='middle' font-family='Arial' font-size='34' font-weight='800' fill='white'%3E1%3C/text%3E%3C/svg%3E"
+    />
+    <meta
+      name="description"
+      content="The unlisted STM Summer 2026 command center for Team 1."
+    />
+    <title>Team 1 Command Center · STM Summer 2026</title>
+    <script>
+      ;(() => {
+        const saved = localStorage.getItem("team-1-theme")
+        document.documentElement.classList.add(
+          saved === "light" ? "light" : "dark",
+        )
+      })()
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot-shell" aria-label="Loading Team 1 dashboard">
+        <aside class="boot-sidebar">
+          <div class="boot-shimmer boot-brand"></div>
+          <div class="boot-shimmer boot-nav"></div>
+          <div class="boot-shimmer boot-nav"></div>
+          <div class="boot-shimmer boot-nav"></div>
+          <div class="boot-shimmer boot-nav"></div>
+        </aside>
+        <main class="boot-main">
+          <div class="boot-shimmer boot-title"></div>
+          <div class="boot-grid">
+            <div class="boot-shimmer boot-card"></div>
+            <div class="boot-shimmer boot-card"></div>
+            <div class="boot-shimmer boot-card"></div>
+          </div>
+          <div class="boot-shimmer boot-panel"></div>
+        </main>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
