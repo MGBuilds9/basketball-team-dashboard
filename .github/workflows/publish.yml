@@ -60,6 +60,7 @@ jobs:
           fi
           echo "code_revision=$code_revision" >> "$GITHUB_OUTPUT"
           echo "data_revision=$data_revision" >> "$GITHUB_OUTPUT"
+          mkdir -p data
           cp data-source/snapshot.json data/snapshot.json
           cp data-source/receipt.json data/receipt.json
 

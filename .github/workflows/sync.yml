@@ -42,6 +42,7 @@ jobs:
 
       - name: Restore last-known-good snapshot
         run: |
+          mkdir -p data
           cp data-source/snapshot.json data/snapshot.json
           cp data-source/receipt.json data/receipt.json
 
