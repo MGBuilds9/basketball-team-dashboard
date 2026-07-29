@@ -1,5 +1,11 @@
 import AxeBuilder from "@axe-core/playwright"
 import { expect, test } from "@playwright/test"
+import snapshotJson from "../../data/snapshot.json"
+import type { TeamSnapshot } from "../../src/data/types"
+
+const snapshot = snapshotJson as TeamSnapshot
+const providerLabel =
+  snapshot.identity.provider === "stm" ? "STM Sports" : "TeamLinkt"
 
 const views = [
   "overview",
@@ -46,6 +52,7 @@ for (const viewport of [
 test("schedule publishes Wednesday games at 8 p.m. and never 10 p.m.", async ({
   page,
 }) => {
+  test.skip(snapshot.identity.provider !== "stm")
   await page.goto("/#/schedule")
   await expect(page.getByText("WED, JUL 29, 2026")).toBeVisible()
   await expect(
@@ -61,7 +68,7 @@ test("mobile More sheet exposes all secondary views", async ({ page }) => {
   await page.goto("/#/overview")
   await page.getByRole("button", { name: "More" }).click()
   await expect(
-    page.getByRole("heading", { name: "More Semi-Uncs views" })
+    page.getByRole("heading", { name: `More ${snapshot.team.name} views` })
   ).toBeVisible()
   await expect(page.getByRole("link", { name: "Leaders" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Team Stats" })).toBeVisible()
@@ -71,33 +78,38 @@ test("mobile More sheet exposes all secondary views", async ({ page }) => {
 test("game books include both teams and retain the official link", async ({
   page,
 }) => {
-  await page.goto("/#/box-scores/ecbe5296-d355-4d8a-abf5-6ba6f73d2964")
+  const boxScore = snapshot.boxScores[0]
+  await page.goto(`/#/box-scores/${boxScore.gameId}`)
   await expect(page.getByRole("table")).toHaveCount(2)
-  await expect(page.locator(".scoreboard-card")).toContainText("Semi-Uncs")
-  await expect(page.locator(".scoreboard-card")).toContainText("Team 2")
+  await expect(page.locator(".scoreboard-card")).toContainText(
+    snapshot.team.name
+  )
+  const opponent =
+    boxScore.home.teamId === snapshot.team.id ? boxScore.away : boxScore.home
+  await expect(page.locator(".scoreboard-card")).toContainText(opponent.teamName)
   await expect(
-    page.getByRole("link", { name: "Official STM game" })
-  ).toHaveAttribute("href", /^https:\/\/stmsports\.ca\/mens-basketball\/game\//)
+    page.getByRole("link", { name: `Official ${providerLabel} game` })
+  ).toHaveAttribute("href", boxScore.officialUrl)
 })
 
 test("game video actions distinguish ready uploads from channel fallbacks", async ({
   page,
 }) => {
+  const ready = snapshot.games.find((game) => game.videoUrl)!
   await page.goto("/#/schedule")
   await expect(
     page.getByRole("link", {
-      name: "Watch Semi-Uncs at Team 2 on YouTube",
+      name: `Watch ${snapshot.team.name} ${
+        ready.isHome ? "versus" : "at"
+      } ${ready.opponentName} on YouTube`,
     })
-  ).toHaveAttribute(
-    "href",
-    "https://www.youtube.com/watch?v=6mEdC0PTWgA"
-  )
+  ).toHaveAttribute("href", ready.videoUrl)
   const pending = page.getByRole("link", {
-    name: "Game video pending; check the STM Sports YouTube channel",
+    name: `Game video pending; check the ${providerLabel} YouTube channel`,
   })
   await expect(pending.first()).toHaveAttribute(
     "href",
-    "https://www.youtube.com/@STMSports-t3z"
+    snapshot.identity.youtubeChannelUrl
   )
   await expect(pending.first()).toHaveClass(/video-pending-button/)
 })
