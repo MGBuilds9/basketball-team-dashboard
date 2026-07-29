@@ -1,0 +1,143 @@
+name: STM Data Sync
+
+on:
+  schedule:
+    - cron: "17 7,15,23 * * *"
+      timezone: "America/Toronto"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pages: write
+  id-token: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      changed: ${{ steps.result.outputs.changed }}
+      data_revision: ${{ steps.result.outputs.data_revision }}
+    steps:
+      - name: Check out application code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+
+      - name: Check out last-known-good data
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: data
+          path: data-source
+
+      - name: Install Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Restore last-known-good snapshot
+        run: |
+          cp data-source/snapshot.json data/snapshot.json
+          cp data-source/receipt.json data/receipt.json
+
+      - name: Probe and validate STM
+        id: probe
+        run: |
+          set -o pipefail
+          npm run sync | tee sync-output.txt
+          if grep -q '^CHANGED ' sync-output.txt; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit one validated snapshot revision
+        if: steps.probe.outputs.changed == 'true'
+        run: |
+          cp data/snapshot.json data-source/snapshot.json
+          cp data/receipt.json data-source/receipt.json
+          cd data-source
+          git config user.name "stm-team-1-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add snapshot.json receipt.json
+          generated_at="$(node -p "require('./receipt.json').generatedAt")"
+          git commit -m "data: refresh Team 1 snapshot $generated_at"
+          git push origin HEAD:data
+
+      - name: Report synchronization result
+        id: result
+        env:
+          CHANGED: ${{ steps.probe.outputs.changed }}
+        run: |
+          echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "data_revision=$(git -C data-source rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: sync
+    if: needs.sync.outputs.changed == 'true'
+    uses: ./.github/workflows/publish.yml
+    with:
+      expected_data_revision: ${{ needs.sync.outputs.data_revision }}
+
+  report:
+    needs:
+      - sync
+      - publish
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open, update, or close the sanitized sync issue
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          SYNC_RESULT: ${{ needs.sync.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+        with:
+          script: |
+            const title = "STM sync failing";
+            const syncFailed = process.env.SYNC_RESULT !== "success";
+            const publishFailed = !["success", "skipped"].includes(process.env.PUBLISH_RESULT);
+            const failed = syncFailed || publishFailed;
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              per_page: 100,
+            });
+            const existing = issues.find((issue) => issue.title === title);
+            if (failed) {
+              const body = [
+                "The automated Team 1 source check or exact-artifact publish gate failed.",
+                "",
+                `Workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                "",
+                "The public dashboard remains on the previous validated snapshot.",
+              ].join("\n");
+              if (existing) {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: existing.number,
+                  body,
+                });
+              } else {
+                await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title,
+                  body,
+                });
+              }
+            } else if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                state: "closed",
+                state_reason: "completed",
+              });
+            }
