@@ -4,6 +4,7 @@ import {
   CalendarDays,
   ChartNoAxesCombined,
   ChevronRight,
+  CirclePlay,
   CircleDot,
   Clock3,
   ExternalLink,
@@ -89,10 +90,21 @@ import type {
   BoxScoreSide,
   GameRow,
   LeaderRow,
-  Team1Snapshot,
+  TeamSnapshot,
 } from "@/data/types"
 
-const snapshot = snapshotJson as Team1Snapshot
+const snapshot = snapshotJson as TeamSnapshot
+const providerLabel =
+  snapshot.identity.provider === "stm" ? "STM Sports" : "TeamLinkt"
+const teamMark =
+  snapshot.team.name.match(/\d+/)?.[0] ??
+  snapshot.team.name
+    .split(/\s+/)
+    .filter((word) => !/^the$/i.test(word))
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase()
 
 type ViewKey =
   | "overview"
@@ -135,24 +147,24 @@ const NAV_ITEMS: Array<{
 
 const VIEW_COPY: Record<ViewKey, { title: string; description: string }> = {
   overview: {
-    title: "Team 1 Command Center",
+    title: `${snapshot.team.name} Command Center`,
     description: "Your next game, record, form, and leaders at a glance.",
   },
   schedule: {
     title: "Schedule & Results",
-    description: "Every Team 1 game, with corrected Toronto start times.",
+    description: `Every ${snapshot.team.name} game with verified local start times.`,
   },
   standings: {
     title: "Standings",
-    description: "The full league table with Team 1 held in focus.",
+    description: `The league table and recent form with ${snapshot.team.name} held in focus.`,
   },
   roster: {
     title: "Roster",
-    description: "Player production from the official Team 1 page.",
+    description: `Player production published for ${snapshot.team.name}.`,
   },
   leaders: {
     title: "Leaders",
-    description: "Team 1’s best alongside the wider league context.",
+    description: `${snapshot.team.name}’s best alongside the wider league context.`,
   },
   "team-stats": {
     title: "Team Stats",
@@ -188,7 +200,7 @@ function useHashRoute(): Route {
 
 function localDate(date: string, options?: Intl.DateTimeFormatOptions) {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Toronto",
+    timeZone: snapshot.identity.timezone,
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -214,21 +226,73 @@ function resultBadge(game: GameRow) {
   if (game.result === "L") return <Badge variant="destructive">Loss</Badge>
   if (game.state === "scheduled")
     return <Badge variant="secondary">Upcoming</Badge>
-  return <Badge variant="outline">{game.state}</Badge>
+  if (game.state === "unreported")
+    return <Badge variant="outline">Awaiting result</Badge>
+  if (game.state === "bye") return <Badge variant="outline">Bye week</Badge>
+  return (
+    <Badge variant="outline">
+      {game.state.charAt(0).toUpperCase() + game.state.slice(1)}
+    </Badge>
+  )
+}
+
+function GameVideoAction({
+  game,
+  size = "sm",
+}: {
+  game: GameRow
+  size?: "sm" | "default"
+}) {
+  if (game.videoUrl) {
+    return (
+      <Button asChild size={size} className="video-ready-button">
+        <a
+          href={game.videoUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Watch ${snapshot.team.name} ${game.isHome ? "versus" : "at"} ${game.opponentName} on YouTube`}
+        >
+          <CirclePlay />
+          Watch game
+        </a>
+      </Button>
+    )
+  }
+  return (
+    <Button
+      asChild
+      size={size}
+      variant="secondary"
+      className="video-pending-button"
+    >
+      <a
+        href={snapshot.identity.youtubeChannelUrl}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={`Game video pending; check the ${providerLabel} YouTube channel`}
+        title="The direct game upload is not available yet"
+      >
+        <CirclePlay />
+        Check channel
+      </a>
+    </Button>
+  )
 }
 
 function TeamMark({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
       <div className="team-mark" aria-hidden="true">
-        1
+        {teamMark}
       </div>
       {!compact && (
         <div className="min-w-0">
           <p className="font-display truncate text-[1.05rem] leading-none uppercase">
-            Team 1
+            {snapshot.team.name}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">Summer 2026</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {snapshot.team.season}
+          </p>
         </div>
       )}
     </div>
@@ -273,7 +337,7 @@ function DesktopSidebar({ active }: { active: ViewKey }) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Team 1</SidebarGroupLabel>
+          <SidebarGroupLabel>{snapshot.team.name}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {NAV_ITEMS.map((item) => (
@@ -303,7 +367,7 @@ function DesktopSidebar({ active }: { active: ViewKey }) {
           </div>
           <p className="mt-1.5 text-xs text-muted-foreground">
             {new Date(snapshot.generatedAt).toLocaleString("en-CA", {
-              timeZone: "America/Toronto",
+              timeZone: snapshot.identity.timezone,
               month: "short",
               day: "numeric",
               hour: "numeric",
@@ -353,7 +417,7 @@ function MobileRail({ active }: { active: ViewKey }) {
           className="rounded-t-2xl pb-[max(1rem,env(safe-area-inset-bottom))]"
         >
           <SheetHeader>
-            <SheetTitle>More Team 1 views</SheetTitle>
+            <SheetTitle>More {snapshot.team.name} views</SheetTitle>
             <SheetDescription>
               Leaders, team stats, and full game books.
             </SheetDescription>
@@ -438,18 +502,21 @@ function GameSummary({
             {game.isHome ? "Home" : "Away"}
           </div>
         </div>
-        {game.team1Score !== null && game.opponentScore !== null && (
+        {game.teamScore !== null && game.opponentScore !== null && (
           <div className="text-right">
             <div className="font-display text-2xl">
-              {game.team1Score}
+              {game.teamScore}
               <span className="mx-1 text-muted-foreground">–</span>
               {game.opponentScore}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">Team 1 first</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {snapshot.team.name} first
+            </p>
           </div>
         )}
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
+        <GameVideoAction game={game} />
         {game.hasBoxScore && (
           <Button asChild size="sm">
             <a href={`#/box-scores/${game.id}`}>
@@ -459,7 +526,7 @@ function GameSummary({
         )}
         <Button asChild size="sm" variant="outline">
           <a href={game.officialUrl} target="_blank" rel="noreferrer">
-            Official STM <ExternalLink />
+            Official {providerLabel} <ExternalLink />
           </a>
         </Button>
       </div>
@@ -491,7 +558,7 @@ function OverviewView() {
                 })}
               </p>
               <h2 className="font-display mt-2 text-4xl leading-[0.95] uppercase sm:text-5xl">
-                Team 1 <span className="text-primary">vs</span>{" "}
+                {snapshot.team.name} <span className="text-primary">vs</span>{" "}
                 {nextGame.opponentName}
               </h2>
               <div className="mt-5 flex flex-wrap items-center gap-4 text-sm">
@@ -620,7 +687,7 @@ function StandingsView() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Summer 2026 standings</CardTitle>
+          <CardTitle>{snapshot.team.season} standings</CardTitle>
       </CardHeader>
       <CardContent className="px-0">
         <ScrollArea className="w-full">
@@ -634,6 +701,7 @@ function StandingsView() {
                 <TableHead className="text-right">GP</TableHead>
                 <TableHead className="text-right">PF</TableHead>
                 <TableHead className="text-right">PA</TableHead>
+                <TableHead>Recent</TableHead>
                 <TableHead className="pr-6 text-right">Diff</TableHead>
               </TableRow>
             </TableHeader>
@@ -641,13 +709,15 @@ function StandingsView() {
               {snapshot.standings.map((row) => (
                 <TableRow
                   key={row.teamId}
-                  className={cn(row.teamName === "Team 1" && "team-one-row")}
+                  className={cn(
+                    row.teamId === snapshot.team.id && "team-one-row"
+                  )}
                 >
                   <TableCell className="pl-6 font-bold">{row.rank}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2 font-bold">
                       {row.teamName}
-                      {row.teamName === "Team 1" && <Badge>YOU</Badge>}
+                      {row.teamId === snapshot.team.id && <Badge>YOU</Badge>}
                     </div>
                   </TableCell>
                   <TableCell className="text-right">{row.wins}</TableCell>
@@ -658,6 +728,30 @@ function StandingsView() {
                   <TableCell className="text-right">{row.pointsFor}</TableCell>
                   <TableCell className="text-right">
                     {row.pointsAgainst}
+                  </TableCell>
+                  <TableCell>
+                    {row.form?.length ? (
+                      <div
+                        className="flex min-w-24 gap-1"
+                        aria-label={`Recent form ${row.form.join(", ")}`}
+                      >
+                        {row.form.map((result, index) => (
+                          <Badge
+                            key={`${row.teamId}-${index}`}
+                            variant={
+                              result === "W" ? "default" : "destructive"
+                            }
+                            className="size-6 justify-center p-0"
+                          >
+                            {result}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {row.streak}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="pr-6 text-right font-bold">
                     {row.differential > 0 ? "+" : ""}
@@ -691,7 +785,7 @@ function RosterView() {
     <Card>
       <CardHeader className="gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <CardTitle>Team 1 roster</CardTitle>
+          <CardTitle>{snapshot.team.name} roster</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
             Search players or rank the active roster by a key statistic.
           </p>
@@ -829,7 +923,7 @@ function LeadersView() {
   return (
     <Tabs defaultValue="team">
       <TabsList className="mb-6">
-        <TabsTrigger value="team">Team 1</TabsTrigger>
+        <TabsTrigger value="team">{snapshot.team.name}</TabsTrigger>
         <TabsTrigger value="league">League</TabsTrigger>
       </TabsList>
       <TabsContent value="team">
@@ -1011,7 +1105,8 @@ function BoxScoresView({ gameId }: { gameId: string | null }) {
           </EmptyMedia>
           <EmptyTitle>Box score unavailable</EmptyTitle>
           <EmptyDescription>
-            STM has not published a complete player table for this game.
+            {providerLabel} has not published a complete player table for this
+            game.
           </EmptyDescription>
         </EmptyHeader>
         <Button asChild variant="outline">
@@ -1030,11 +1125,14 @@ function BoxScoresView({ gameId }: { gameId: string | null }) {
           <Button asChild variant="outline">
             <a href="#/box-scores">← All games</a>
           </Button>
-          <Button asChild variant="ghost">
-            <a href={selected.officialUrl} target="_blank" rel="noreferrer">
-              Official STM game <ExternalLink />
-            </a>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <GameVideoAction game={game} size="default" />
+            <Button asChild variant="ghost">
+              <a href={selected.officialUrl} target="_blank" rel="noreferrer">
+                Official {providerLabel} game <ExternalLink />
+              </a>
+            </Button>
+          </div>
         </div>
         <Card className="scoreboard-card">
           <CardContent className="grid items-center gap-6 p-6 text-center sm:grid-cols-[1fr_auto_1fr]">
@@ -1098,6 +1196,16 @@ function ActiveView({ route }: { route: Route }) {
 export default function App() {
   const route = useHashRoute()
   const copy = VIEW_COPY[route.view]
+  React.useEffect(() => {
+    document.title = `${snapshot.team.name} Command Center · ${snapshot.team.season}`
+    const description = document.querySelector<HTMLMetaElement>(
+      'meta[name="description"]'
+    )
+    description?.setAttribute(
+      "content",
+      `${snapshot.team.name} schedule, standings, leaders, statistics, box scores, and game videos.`
+    )
+  }, [])
   const [stale] = React.useState(
     () =>
       Date.now() - new Date(snapshot.generatedAt).getTime() >
@@ -1117,7 +1225,7 @@ export default function App() {
             </div>
             <div className="min-w-0">
               <p className="hidden text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase md:block">
-                STM · Men’s Basketball · Summer 2026
+                {snapshot.identity.leagueName} · {snapshot.team.season}
               </p>
               <h1 className="font-display truncate text-xl uppercase md:mt-1 md:text-2xl">
                 <span className="md:hidden">
@@ -1155,8 +1263,13 @@ export default function App() {
             <ActiveView route={route} />
             <footer className="app-footer">
               <div>
-                <p className="font-bold">Team 1 Command Center</p>
-                <p>Operational data from STM Sports. Unlisted and noindexed.</p>
+                <p className="font-bold">
+                  {snapshot.team.name} Command Center
+                </p>
+                <p>
+                  Operational data from {providerLabel}. Unlisted and
+                  noindexed.
+                </p>
               </div>
               <div className="text-right">
                 <p>Data {snapshot.contentHash.slice(0, 8)}</p>

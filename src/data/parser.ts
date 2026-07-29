@@ -7,9 +7,11 @@ import type {
   GameBoxScore,
   GameRow,
   PlayerRow,
+  ProviderCapabilities,
   ShootingLine,
   StandingRow,
-  Team1Snapshot,
+  TeamIdentity,
+  TeamSnapshot,
 } from "./types"
 
 export const TEAM_1_ID = "0dce2102-2b06-4750-b25d-8cbdba23d2c5"
@@ -147,7 +149,7 @@ export function parseSchedule(html: string): GameRow[] {
       const isHome = game.homeTeamId === TEAM_1_ID
       const state = stateFor(game)
       const decided = state === "final" || state === "forfeit"
-      const team1Score = decided
+      const teamScore = decided
         ? isHome
           ? game.homeScore
           : game.awayScore
@@ -158,9 +160,9 @@ export function parseSchedule(html: string): GameRow[] {
           : game.homeScore
         : null
       const result =
-        team1Score === null || opponentScore === null
+        teamScore === null || opponentScore === null
           ? null
-          : team1Score > opponentScore
+          : teamScore > opponentScore
             ? "W"
             : "L"
       const date = game.scheduledAt.slice(0, 10)
@@ -175,11 +177,13 @@ export function parseSchedule(html: string): GameRow[] {
         opponentName: isHome ? game.awayTeamName : game.homeTeamName,
         venue: null,
         isHome,
-        team1Score,
+        teamScore,
         opponentScore,
         result,
         officialUrl: `${STM_BASE_URL}/game/${game.id}`,
         hasBoxScore: false,
+        videoUrl: null,
+        videoTitle: null,
       }
     })
   return games.sort((a, b) => a.scheduledAt!.localeCompare(b.scheduledAt!))
@@ -328,14 +332,15 @@ function parseBoxScoreSide(
 
 export function parseBoxScore(
   html: string,
-  game: GameRow
+  game: GameRow,
+  selectedTeam = { id: TEAM_1_ID, name: "Team 1" }
 ): GameBoxScore | null {
   const $ = load(html)
   if ($("table").length < 2) return null
-  const homeName = game.isHome ? "Team 1" : game.opponentName
-  const awayName = game.isHome ? game.opponentName : "Team 1"
-  const homeId = game.isHome ? TEAM_1_ID : game.opponentId
-  const awayId = game.isHome ? game.opponentId : TEAM_1_ID
+  const homeName = game.isHome ? selectedTeam.name : game.opponentName
+  const awayName = game.isHome ? game.opponentName : selectedTeam.name
+  const homeId = game.isHome ? selectedTeam.id : game.opponentId
+  const awayId = game.isHome ? game.opponentId : selectedTeam.id
   return {
     gameId: game.id,
     date: game.date,
@@ -353,10 +358,34 @@ export function assembleSnapshot(input: {
   games: GameRow[]
   leaguePlayers: ParsedLeaguePlayer[]
   boxScores: GameBoxScore[]
-  sources: Team1Snapshot["sources"]
-}): Team1Snapshot {
-  const standing = input.standings.find((row) => row.teamName === "Team 1")
-  if (!standing) throw new Error("Team 1 is missing from standings")
+  sources: TeamSnapshot["sources"]
+  identity?: TeamIdentity
+  capabilities?: ProviderCapabilities
+  sourceTeamName?: string
+}): TeamSnapshot {
+  const identity = input.identity ?? {
+    provider: "stm",
+    leagueId: "mens-basketball",
+    seasonId: "summer-2026",
+    teamId: TEAM_1_ID,
+    name: "Team 1",
+    seasonName: "Summer 2026",
+    leagueName: "STM Men’s Basketball",
+    timezone: "America/Toronto",
+    youtubeChannelUrl: "https://www.youtube.com/@STMSports-t3z",
+  }
+  const sourceTeamName = input.sourceTeamName ?? identity.name
+  const standing = input.standings.find(
+    (row) => row.teamName === sourceTeamName
+  )
+  if (!standing) {
+    throw new Error(`${sourceTeamName} is missing from standings`)
+  }
+  const standings = input.standings.map((row) =>
+    row.teamId === identity.teamId
+      ? { ...row, teamName: identity.name }
+      : row
+  )
   const gamesWithBoxScores = new Set(
     input.boxScores.map((score) => score.gameId)
   )
@@ -365,13 +394,22 @@ export function assembleSnapshot(input: {
     hasBoxScore: gamesWithBoxScores.has(game.id),
   }))
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: input.generatedAt,
     contentHash: input.contentHash,
+    identity,
+    capabilities: input.capabilities ?? {
+      roster: true,
+      standings: "official",
+      leagueLeaders: "official",
+      boxScores: true,
+      liveScores: false,
+      gameVideos: true,
+    },
     team: {
-      id: TEAM_1_ID,
-      name: "Team 1",
-      season: "Summer 2026",
+      id: identity.teamId,
+      name: identity.name,
+      season: identity.seasonName,
       wins: standing.wins,
       losses: standing.losses,
       pointsFor: standing.pointsFor,
@@ -381,10 +419,10 @@ export function assembleSnapshot(input: {
     },
     roster: input.roster,
     games,
-    standings: input.standings,
-    teamLeaders: deriveLeaders(input.roster, "Team 1"),
+    standings,
+    teamLeaders: deriveLeaders(input.roster, identity.name),
     leagueLeaders: deriveLeaders(input.leaguePlayers, "League"),
-    teamStats: deriveTeamStats(input.boxScores),
+    teamStats: deriveTeamStats(input.boxScores, identity.teamId),
     boxScores: input.boxScores,
     sources: input.sources,
   }

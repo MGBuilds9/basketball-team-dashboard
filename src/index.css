@@ -225,6 +225,20 @@
   @apply bg-source/15 text-source;
 }
 
+.video-ready-button {
+  background: #ff0033;
+  color: white;
+  box-shadow: 0 8px 24px color-mix(in srgb, #ff0033 24%, transparent);
+}
+
+.video-ready-button:hover {
+  background: #df002d;
+}
+
+.video-pending-button {
+  @apply bg-source/15 text-source hover:bg-source/25;
+}
+
 .team-one-row {
   background-color: color-mix(in srgb, var(--primary) 11%, transparent);
   box-shadow: inset 3px 0 0 var(--primary);

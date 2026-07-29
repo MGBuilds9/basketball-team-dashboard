@@ -1,0 +1,23 @@
+{
+  "provider": "teamlinkt",
+  "projectSlug": "tax-collectors-dashboard",
+  "leagueId": "smsv-basketball",
+  "seasonId": "57100",
+  "teamId": "892656",
+  "teamName": "The Tax Collectors",
+  "sourceTeamName": "The Tax Collectors",
+  "seasonName": "2026 Summer Men’s Season",
+  "leagueName": "SMSV Basketball · Legacy League",
+  "timezone": "America/Toronto",
+  "active": true,
+  "manualCloseoutAt": null,
+  "youtube": {
+    "channelUrl": "https://www.youtube.com/@SBLHoops",
+    "teamAliases": ["The Tax Collectors", "Tax Collectors"]
+  },
+  "source": {
+    "associationId": "9966",
+    "teamId": "892656",
+    "seasonId": "57100"
+  }
+}

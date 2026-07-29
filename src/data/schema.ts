@@ -1,16 +1,49 @@
 import { z } from "zod"
 
+function isSupportedBasketballUrl(value: string): boolean {
+  const url = new URL(value)
+  const safeHosts = new Set([
+    "stmsports.ca",
+    "leagues.teamlinkt.com",
+    "www.youtube.com",
+    "youtu.be",
+  ])
+  if (url.protocol !== "https:" || !safeHosts.has(url.hostname)) return false
+  if (url.hostname === "stmsports.ca") {
+    return url.pathname.startsWith("/mens-basketball/")
+  }
+  if (url.hostname === "leagues.teamlinkt.com") {
+    return url.pathname.toLowerCase().startsWith("/leagues/")
+  }
+  if (url.hostname === "youtu.be") {
+    return /^\/[A-Za-z0-9_-]{11}$/.test(url.pathname)
+  }
+  return (
+    /^\/@[A-Za-z0-9._-]+\/?$/.test(url.pathname) ||
+    (url.pathname === "/watch" &&
+      /^[A-Za-z0-9_-]{11}$/.test(url.searchParams.get("v") ?? ""))
+  )
+}
+
 const safeSourceUrl = z
+  .string()
+  .url()
+  .refine(isSupportedBasketballUrl, "URL must be a safe supported basketball source URL")
+
+const safeYoutubeVideoUrl = z
   .string()
   .url()
   .refine((value) => {
     const url = new URL(value)
     return (
       url.protocol === "https:" &&
-      url.hostname === "stmsports.ca" &&
-      url.pathname.startsWith("/mens-basketball/")
+      ((url.hostname === "www.youtube.com" &&
+        url.pathname === "/watch" &&
+        /^[A-Za-z0-9_-]{11}$/.test(url.searchParams.get("v") ?? "")) ||
+        (url.hostname === "youtu.be" &&
+          /^\/[A-Za-z0-9_-]{11}$/.test(url.pathname)))
     )
-  }, "URL must be a safe STM Sports basketball URL")
+  }, "Game video must be a direct safe YouTube watch URL")
 
 const nonNegative = z.number().finite().nonnegative()
 const nullablePct = z.number().finite().min(0).max(100).nullable()
@@ -75,15 +108,34 @@ const boxScoreSideSchema = z.object({
   totals: countingLineSchema,
 })
 
-export const team1SnapshotSchema = z
+export const teamSnapshotSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     generatedAt: z.string().datetime(),
     contentHash: z.string().regex(/^[a-f0-9]{64}$/),
+    identity: z.object({
+      provider: z.enum(["stm", "teamlinkt"]),
+      leagueId: z.string().trim().min(1).max(100),
+      seasonId: z.string().trim().min(1).max(100),
+      teamId: z.string().trim().min(1).max(100),
+      name: z.string().trim().min(1).max(100),
+      seasonName: z.string().trim().min(1).max(100),
+      leagueName: z.string().trim().min(1).max(100),
+      timezone: z.literal("America/Toronto"),
+      youtubeChannelUrl: safeSourceUrl,
+    }),
+    capabilities: z.object({
+      roster: z.boolean(),
+      standings: z.enum(["official", "derived", "unavailable"]),
+      leagueLeaders: z.enum(["official", "derived", "unavailable"]),
+      boxScores: z.boolean(),
+      liveScores: z.boolean(),
+      gameVideos: z.boolean(),
+    }),
     team: z.object({
-      id: z.string().uuid(),
-      name: z.literal("Team 1"),
-      season: z.literal("Summer 2026"),
+      id: z.string().trim().min(1).max(100),
+      name: z.string().trim().min(1).max(100),
+      season: z.string().trim().min(1).max(100),
       wins: nonNegative.int(),
       losses: nonNegative.int(),
       pointsFor: nonNegative.int(),
@@ -109,7 +161,7 @@ export const team1SnapshotSchema = z
     ),
     games: z.array(
       z.object({
-        id: z.string().uuid(),
+        id: z.string().trim().min(1).max(100),
         date: z.string().date(),
         scheduledAt: z.string().datetime({ local: true }).nullable(),
         displayTime: z
@@ -121,6 +173,8 @@ export const team1SnapshotSchema = z
           "live",
           "final",
           "forfeit",
+          "unreported",
+          "bye",
           "postponed",
           "canceled",
           "rescheduled",
@@ -130,11 +184,13 @@ export const team1SnapshotSchema = z
         opponentName: z.string().trim().min(1).max(100),
         venue: z.string().trim().max(200).nullable(),
         isHome: z.boolean(),
-        team1Score: nonNegative.int().nullable(),
+        teamScore: nonNegative.int().nullable(),
         opponentScore: nonNegative.int().nullable(),
         result: z.enum(["W", "L"]).nullable(),
         officialUrl: safeSourceUrl,
         hasBoxScore: z.boolean(),
+        videoUrl: safeYoutubeVideoUrl.nullable(),
+        videoTitle: z.string().trim().min(1).max(200).nullable(),
       })
     ),
     standings: z.array(
@@ -150,6 +206,7 @@ export const team1SnapshotSchema = z
         pointsAgainst: nonNegative.int(),
         differential: z.number().int(),
         streak: z.string().trim().min(1).max(20),
+        form: z.array(z.enum(["W", "L"])).max(10).optional(),
       })
     ),
     teamLeaders: z.array(
@@ -187,7 +244,7 @@ export const team1SnapshotSchema = z
     }),
     boxScores: z.array(
       z.object({
-        gameId: z.string().uuid(),
+        gameId: z.string().trim().min(1).max(100),
         date: z.string().date(),
         officialUrl: safeSourceUrl,
         home: boxScoreSideSchema,
@@ -204,6 +261,18 @@ export const team1SnapshotSchema = z
     ),
   })
   .superRefine((snapshot, context) => {
+    if (
+      snapshot.team.id !== snapshot.identity.teamId ||
+      snapshot.team.name !== snapshot.identity.name ||
+      snapshot.team.season !== snapshot.identity.seasonName
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["identity"],
+        message: "Snapshot identity must match the selected team summary",
+      })
+    }
+
     const ids = snapshot.roster.map((player) => player.id)
     if (new Set(ids).size !== ids.length) {
       context.addIssue({
@@ -214,8 +283,19 @@ export const team1SnapshotSchema = z
     }
 
     for (const [index, game] of snapshot.games.entries()) {
+      if ((game.videoUrl === null) !== (game.videoTitle === null)) {
+        context.addIssue({
+          code: "custom",
+          path: ["games", index, "videoUrl"],
+          message: "Game video URL and title must be published together",
+        })
+      }
       const weekday = new Date(`${game.date}T12:00:00Z`).getUTCDay()
-      if (weekday === 3 && game.displayTime !== "20:00") {
+      if (
+        snapshot.identity.provider === "stm" &&
+        weekday === 3 &&
+        game.displayTime !== "20:00"
+      ) {
         context.addIssue({
           code: "custom",
           path: ["games", index, "displayTime"],
@@ -225,13 +305,13 @@ export const team1SnapshotSchema = z
 
       const decided = game.state === "final" || game.state === "forfeit"
       if (decided) {
-        if (game.team1Score === null || game.opponentScore === null) {
+        if (game.teamScore === null || game.opponentScore === null) {
           context.addIssue({
             code: "custom",
             path: ["games", index],
             message: "Completed games require both scores",
           })
-        } else if (game.team1Score === game.opponentScore) {
+        } else if (game.teamScore === game.opponentScore) {
           context.addIssue({
             code: "custom",
             path: ["games", index],
@@ -239,7 +319,7 @@ export const team1SnapshotSchema = z
           })
         }
       } else if (
-        game.team1Score !== null ||
+        game.teamScore !== null ||
         game.opponentScore !== null ||
         game.result !== null
       ) {
@@ -282,7 +362,7 @@ export const team1SnapshotSchema = z
       context.addIssue({
         code: "custom",
         path: ["team"],
-        message: "Team summary must match the Team 1 standings row",
+        message: "Team summary must match the selected team standings row",
       })
     }
 
@@ -299,11 +379,15 @@ export const team1SnapshotSchema = z
         continue
       }
       const teamSide =
-        boxScore.home.teamName === "Team 1" ? boxScore.home : boxScore.away
+        boxScore.home.teamId === snapshot.team.id
+          ? boxScore.home
+          : boxScore.away
       const opponentSide =
-        boxScore.home.teamName === "Team 1" ? boxScore.away : boxScore.home
+        boxScore.home.teamId === snapshot.team.id
+          ? boxScore.away
+          : boxScore.home
       if (
-        teamSide.score !== game.team1Score ||
+        teamSide.score !== game.teamScore ||
         opponentSide.score !== game.opponentScore ||
         teamSide.totals.points !== teamSide.score ||
         opponentSide.totals.points !== opponentSide.score
@@ -316,3 +400,6 @@ export const team1SnapshotSchema = z
       }
     }
   })
+
+/** @deprecated Use teamSnapshotSchema. */
+export const team1SnapshotSchema = teamSnapshotSchema

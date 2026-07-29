@@ -1,0 +1,24 @@
+{
+  "provider": "stm",
+  "projectSlug": "stm-team-1-dashboard",
+  "leagueId": "mens-basketball",
+  "seasonId": "summer-2026",
+  "teamId": "0dce2102-2b06-4750-b25d-8cbdba23d2c5",
+  "teamName": "Semi-Uncs",
+  "sourceTeamName": "Team 1",
+  "seasonName": "Summer 2026",
+  "leagueName": "STM Men’s Basketball",
+  "timezone": "America/Toronto",
+  "active": true,
+  "manualCloseoutAt": null,
+  "youtube": {
+    "channelUrl": "https://www.youtube.com/@STMSports-t3z",
+    "teamAliases": ["Team 1", "Semi-Uncs"]
+  },
+  "source": {
+    "leaguePath": "mens-basketball"
+  },
+  "rules": {
+    "wednesdayStartTime": "20:00"
+  }
+}

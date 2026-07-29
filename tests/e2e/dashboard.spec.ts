@@ -27,7 +27,7 @@ for (const viewport of [
           })
           await page.setViewportSize(viewport)
           await page.addInitScript((selectedTheme) => {
-            localStorage.setItem("team-1-theme", selectedTheme)
+            localStorage.setItem("basketball-dashboard-theme", selectedTheme)
           }, theme)
           await page.goto(`/#/${view}`)
           await expect(page.locator("h1")).toBeVisible()
@@ -61,7 +61,7 @@ test("mobile More sheet exposes all secondary views", async ({ page }) => {
   await page.goto("/#/overview")
   await page.getByRole("button", { name: "More" }).click()
   await expect(
-    page.getByRole("heading", { name: "More Team 1 views" })
+    page.getByRole("heading", { name: "More Semi-Uncs views" })
   ).toBeVisible()
   await expect(page.getByRole("link", { name: "Leaders" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Team Stats" })).toBeVisible()
@@ -73,11 +73,33 @@ test("game books include both teams and retain the official link", async ({
 }) => {
   await page.goto("/#/box-scores/ecbe5296-d355-4d8a-abf5-6ba6f73d2964")
   await expect(page.getByRole("table")).toHaveCount(2)
-  await expect(page.locator(".scoreboard-card")).toContainText("Team 1")
+  await expect(page.locator(".scoreboard-card")).toContainText("Semi-Uncs")
   await expect(page.locator(".scoreboard-card")).toContainText("Team 2")
   await expect(
     page.getByRole("link", { name: "Official STM game" })
   ).toHaveAttribute("href", /^https:\/\/stmsports\.ca\/mens-basketball\/game\//)
+})
+
+test("game video actions distinguish ready uploads from channel fallbacks", async ({
+  page,
+}) => {
+  await page.goto("/#/schedule")
+  await expect(
+    page.getByRole("link", {
+      name: "Watch Semi-Uncs at Team 2 on YouTube",
+    })
+  ).toHaveAttribute(
+    "href",
+    "https://www.youtube.com/watch?v=6mEdC0PTWgA"
+  )
+  const pending = page.getByRole("link", {
+    name: "Game video pending; check the STM Sports YouTube channel",
+  })
+  await expect(pending.first()).toHaveAttribute(
+    "href",
+    "https://www.youtube.com/@STMSports-t3z"
+  )
+  await expect(pending.first()).toHaveClass(/video-pending-button/)
 })
 
 test("hash navigation remains functional after the network goes offline", async ({

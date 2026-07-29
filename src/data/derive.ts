@@ -60,9 +60,12 @@ function sumShooting(
   }
 }
 
-export function deriveTeamStats(boxScores: GameBoxScore[]): TeamStats {
+export function deriveTeamStats(
+  boxScores: GameBoxScore[],
+  selectedTeamId: string
+): TeamStats {
   const sides = boxScores.map((boxScore) =>
-    boxScore.home.teamName === "Team 1" ? boxScore.home : boxScore.away
+    boxScore.home.teamId === selectedTeamId ? boxScore.home : boxScore.away
   )
   const games = sides.length
   const average = (

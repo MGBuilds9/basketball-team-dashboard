@@ -13,7 +13,7 @@ function renderApp(hash: string) {
   )
 }
 
-describe("Team 1 interface", () => {
+describe("selected-team interface", () => {
   beforeEach(() => {
     localStorage.clear()
   })
@@ -25,10 +25,30 @@ describe("Team 1 interface", () => {
   it("renders the operational overview with the corrected next-game time", () => {
     renderApp("#/overview")
     expect(
-      screen.getByRole("heading", { name: /Team 1 Command Center/ })
+      screen.getByRole("heading", { name: /Semi-Uncs Command Center/ })
     ).toBeInTheDocument()
     expect(screen.getByText("Wednesday, July 29, 2026")).toBeInTheDocument()
     expect(screen.getByText("8:00 p.m.")).toBeInTheDocument()
+  })
+
+  it("uses direct game video links and a distinct channel fallback", () => {
+    renderApp("#/schedule")
+    expect(
+      screen.getByRole("link", {
+        name: /Watch Semi-Uncs at Team 2 on YouTube/,
+      })
+    ).toHaveAttribute(
+      "href",
+      "https://www.youtube.com/watch?v=6mEdC0PTWgA"
+    )
+    expect(
+      screen.getAllByRole("link", {
+        name: /Game video pending; check the STM Sports YouTube channel/,
+      })[0]
+    ).toHaveAttribute(
+      "href",
+      "https://www.youtube.com/@STMSports-t3z"
+    )
   })
 
   it("navigates hash routes without a data request", () => {

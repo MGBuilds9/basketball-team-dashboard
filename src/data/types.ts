@@ -3,6 +3,8 @@ export type GameState =
   | "live"
   | "final"
   | "forfeit"
+  | "unreported"
+  | "bye"
   | "postponed"
   | "canceled"
   | "rescheduled"
@@ -10,6 +12,28 @@ export type GameState =
 
 export type Result = "W" | "L" | null
 export type LeaderCategory = "ppg" | "rpg" | "apg" | "spg" | "bpg"
+export type ProviderKind = "stm" | "teamlinkt"
+
+export interface TeamIdentity {
+  provider: ProviderKind
+  leagueId: string
+  seasonId: string
+  teamId: string
+  name: string
+  seasonName: string
+  leagueName: string
+  timezone: string
+  youtubeChannelUrl: string
+}
+
+export interface ProviderCapabilities {
+  roster: boolean
+  standings: "official" | "derived" | "unavailable"
+  leagueLeaders: "official" | "derived" | "unavailable"
+  boxScores: boolean
+  liveScores: boolean
+  gameVideos: boolean
+}
 
 export interface SourceReference {
   label: string
@@ -20,8 +44,8 @@ export interface SourceReference {
 
 export interface TeamSummary {
   id: string
-  name: "Team 1"
-  season: "Summer 2026"
+  name: string
+  season: string
   wins: number
   losses: number
   pointsFor: number
@@ -57,6 +81,7 @@ export interface StandingRow {
   pointsAgainst: number
   differential: number
   streak: string
+  form?: Array<Exclude<Result, null>>
 }
 
 export interface GameRow {
@@ -69,11 +94,13 @@ export interface GameRow {
   opponentName: string
   venue: string | null
   isHome: boolean
-  team1Score: number | null
+  teamScore: number | null
   opponentScore: number | null
   result: Result
   officialUrl: string
   hasBoxScore: boolean
+  videoUrl: string | null
+  videoTitle: string | null
 }
 
 export interface LeaderRow {
@@ -136,10 +163,12 @@ export interface TeamStats {
   freeThrowPct: number | null
 }
 
-export interface Team1Snapshot {
-  schemaVersion: 1
+export interface TeamSnapshot {
+  schemaVersion: 2
   generatedAt: string
   contentHash: string
+  identity: TeamIdentity
+  capabilities: ProviderCapabilities
   team: TeamSummary
   roster: PlayerRow[]
   games: GameRow[]
@@ -150,3 +179,6 @@ export interface Team1Snapshot {
   boxScores: GameBoxScore[]
   sources: SourceReference[]
 }
+
+/** @deprecated Use TeamSnapshot. Retained while child projects merge the base release. */
+export type Team1Snapshot = TeamSnapshot

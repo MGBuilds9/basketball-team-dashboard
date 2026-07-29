@@ -67,12 +67,14 @@ describe("sanitized live-source fixtures", () => {
       opponentName: "Team 2",
       venue: null,
       isHome: false,
-      team1Score: 65,
+      teamScore: 65,
       opponentScore: 74,
       result: "L",
       officialUrl:
         "https://stmsports.ca/mens-basketball/game/ecbe5296-d355-4d8a-abf5-6ba6f73d2964",
       hasBoxScore: true,
+      videoUrl: null,
+      videoTitle: null,
     }
     const boxScore = parseBoxScore(fixture(`box-score-${game.id}.html`), game)
     expect(boxScore?.home.teamName).toBe("Team 2")

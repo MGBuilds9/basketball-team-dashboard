@@ -1,29 +1,30 @@
-# STM Team 1 Command Center
+# Basketball Team Dashboard
 
-An unlisted, offline-capable Team 1 dashboard for the STM Summer 2026 men’s
-basketball season.
-
-**Live app:** https://mgbuilds9.github.io/stm-team-1-dashboard/
+A reusable, offline-capable command center for one basketball team. Each team
+gets its own Git repository and configuration while inheriting product upgrades
+from this canonical base.
 
 ## What it includes
 
-- Team 1 schedule and results with official game links
-- Wednesday games validated at exactly 8:00 p.m. Toronto time
-- Standings, roster, Team 1 leaders, and league leaders
+- Team-first schedule and results with official game links
+- Direct YouTube game links when an exact upload is verified, plus a visually
+  distinct league-channel fallback while the upload is pending
+- Standings, roster, team leaders, and contextual league leaders
 - Team statistics derived from published completed-game tables
-- Local two-team box scores with official STM links
+- Local two-team box scores with official provider links
 - Dark and light themes, desktop sidebar, mobile bottom rail, and noindex controls
 
 ## Data integrity
 
-The app does not scrape STM in the browser. `npm run sync` downloads server-rendered
-HTML, parses it with Cheerio, validates the normalized contract with Zod, and writes
-a snapshot only when normalized content changes. A malformed or inconsistent update
-fails before it can replace the last-known-good data.
+The app does not scrape a league in the browser. `npm run sync` selects the adapter
+declared in `config/team.json`, whitelists a provider response into `TeamSnapshot`
+v2, validates it with Zod, and writes only normalized data. A malformed or
+inconsistent update fails before it can replace the last-known-good snapshot.
 
-STM currently publishes several inconsistent derived “Diff” cells. This dashboard
-uses the published PF and PA values and computes `PF - PA`, while preserving STM’s
-published rank and record.
+STM pages are parsed from server-rendered HTML. TeamLinkt standings and leaders are
+derived from official season scores and published event stat lines because its
+public standings screen can default to another division. Provider responses are
+never committed raw.
 
 ## Local development
 
@@ -44,8 +45,25 @@ npm run build
 npm run test:e2e
 ```
 
-`npm run fixtures:capture` refreshes sanitized, bounded parser fixtures. Raw STM
-responses are never committed.
+`npm run fixtures:capture` refreshes sanitized STM parser fixtures. Provider-neutral
+and TeamLinkt normalization tests run with `npm test`.
+
+## Create a team project
+
+Clone this repository, replace `config/team.json`, empty
+`config/video-overrides.json`, run `npm run sync`, and commit the team configuration.
+Keep this repository as the child project’s `upstream` remote:
+
+```bash
+git remote add upstream https://github.com/MGBuilds9/basketball-team-dashboard.git
+git fetch upstream
+git merge upstream/main
+```
+
+The base currently supports `stm` and `teamlinkt`. See
+`config/tax-collectors.team.json` for a TeamLinkt example. Direct-video overrides
+are keyed by stable game ID and are accepted only when YouTube confirms the video
+belongs to the configured league channel.
 
 ## Branch and release model
 
