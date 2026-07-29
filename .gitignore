@@ -11,6 +11,12 @@ node_modules
 dist
 dist-ssr
 *.local
+artifacts
+playwright-report
+test-results
+coverage
+data/snapshot.json
+data/receipt.json
 
 # Editor directories and files
 .vscode/*
