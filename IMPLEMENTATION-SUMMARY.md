@@ -7,6 +7,9 @@ Tailwind CSS, and shadcn `radix-nova` application. The production artifact is a
 single self-contained HTML file with embedded fonts, styles, application code, and
 validated snapshot.
 
+The production release is live at
+https://mgbuilds9.github.io/stm-team-1-dashboard/.
+
 ## Live source proof
 
 Sanitized fixtures prove server-rendered extraction for:
@@ -33,6 +36,8 @@ routine source path.
 - exact two-team local game books
 - zero console errors and zero runtime data requests
 - one-file budget: approximately 1.11 MiB HTML and 220 KiB gzipped JavaScript
+- production release gate: GitHub Actions run `30421555400`
+- no-change live sync proof: GitHub Actions run `30421675547`
 
 ## Source anomaly
 

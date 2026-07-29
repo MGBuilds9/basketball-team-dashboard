@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Gap Hunt — STM Team 1 Command Center</title>
+  <style>
+    :root { color-scheme: dark; --bg:#07110f; --panel:#0d1c18; --ink:#f3f7f5; --muted:#9fb1ab; --line:#24443a; --lime:#d4ff2a; --ok:#59dda3; --warn:#ffcf66; }
+    @media (prefers-color-scheme: light) { :root { color-scheme: light; --bg:#f4f8f5; --panel:#fff; --ink:#10201b; --muted:#50645d; --line:#cbdad4; --lime:#587700; --ok:#087c4b; --warn:#8b5b00; } }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { width:min(1040px,calc(100% - 32px)); margin:0 auto; padding:48px 0 72px; }
+    h1,h2 { letter-spacing:-.025em; }
+    h1 { margin:0; font-size:clamp(2rem,6vw,4.75rem); line-height:.95; text-transform:uppercase; }
+    h2 { margin:0 0 12px; font-size:1.05rem; text-transform:uppercase; letter-spacing:.08em; }
+    .eyebrow { color:var(--lime); font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+    .lede { max-width:720px; color:var(--muted); font-size:1.1rem; }
+    .metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:32px 0; }
+    .metric,.card { border:1px solid var(--line); background:var(--panel); border-radius:16px; }
+    .metric { padding:20px; }
+    .metric strong { display:block; font-size:2rem; line-height:1; }
+    .metric span { color:var(--muted); }
+    .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
+    .card { padding:24px; }
+    .wide { grid-column:1/-1; }
+    ul { margin:0; padding-left:1.2rem; }
+    li + li { margin-top:.55rem; }
+    .ok { color:var(--ok); }
+    .warn { color:var(--warn); }
+    code { color:var(--lime); }
+    footer { margin-top:28px; color:var(--muted); font-size:.9rem; }
+    @media (max-width:720px) { main { padding-top:32px; } .metrics,.grid { grid-template-columns:1fr; } .wide { grid-column:auto; } }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">Post-deployment audit · 29 July 2026</p>
+    <h1>STM Team 1<br>Gap Hunt</h1>
+    <p class="lede">Live application, release workflow, source synchronization, accessibility, indexing, data integrity, and operational recovery were checked against documented intent.</p>
+    <section class="metrics" aria-label="Finding totals">
+      <div class="metric"><strong class="ok">0</strong><span>Blockers</span></div>
+      <div class="metric"><strong class="warn">1</strong><span>Polish item</span></div>
+      <div class="metric"><strong>1</strong><span>Nice-to-have</span></div>
+    </section>
+    <div class="grid">
+      <section class="card">
+        <h2>Disposition</h2>
+        <p class="ok"><strong>Release healthy.</strong></p>
+        <p>The production URL returns 200 over TLS, the exact tested artifact is live, and no dashboard release or data-integrity blocker remains.</p>
+      </section>
+      <section class="card">
+        <h2>Polish</h2>
+        <p>GitHub annotates some official SHA-pinned actions while it forces their bundled Node 20 runtimes onto Node 24. Runs succeed. Recheck official revisions during normal dependency maintenance.</p>
+      </section>
+      <section class="card wide">
+        <h2>Proof</h2>
+        <ul>
+          <li>One 1.11 MiB HTML request; no runtime data requests or external font assets.</li>
+          <li>Zero production console errors or warnings.</li>
+          <li>Live <code>noindex,nofollow,noarchive</code> plus deny-all <code>robots.txt</code>.</li>
+          <li>Content <code>59a34f07</code>, code <code>5b0e1048</code>, data <code>9c96592e</code>.</li>
+          <li>19 unit/component tests and 33 browser tests passed in the production gate.</li>
+          <li>390×844 mobile navigation has five approved items and no horizontal overflow.</li>
+          <li>All Wednesday fixtures display 8:00 p.m.; no 10:00 p.m. value shipped.</li>
+          <li>Manual source check returned <code>UNCHANGED</code>, created no commit, and invoked no deployment.</li>
+          <li>Production dependency audit reports zero vulnerabilities.</li>
+        </ul>
+      </section>
+      <section class="card">
+        <h2>Recurrence controls</h2>
+        <ul>
+          <li>Three timezone-aware probes daily.</li>
+          <li>Last-known-good fail-closed snapshot.</li>
+          <li>Deterministic data-only commits.</li>
+          <li>Single exact-artifact release path.</li>
+          <li>Sanitized failure issue lifecycle.</li>
+        </ul>
+      </section>
+      <section class="card">
+        <h2>Nice-to-have</h2>
+        <p>A separate synthetic availability monitor can be added if paging on GitHub Pages outages becomes useful. Custom domain and teammate notifications remain intentionally deferred.</p>
+      </section>
+      <section class="card wide">
+        <h2>External operating note</h2>
+        <p>The Mac audit still reports the pre-existing unencrypted Time Machine network image. Its owner-gated repair requires erasing and recreating the backup set with a private password; this deployment correctly left it untouched.</p>
+      </section>
+    </div>
+    <footer>STM Team 1 Command Center · Production gap review</footer>
+  </main>
+</body>
+</html>

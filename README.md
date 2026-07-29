@@ -3,6 +3,8 @@
 An unlisted, offline-capable Team 1 dashboard for the STM Summer 2026 men’s
 basketball season.
 
+**Live app:** https://mgbuilds9.github.io/stm-team-1-dashboard/
+
 ## What it includes
 
 - Team 1 schedule and results with official game links
