@@ -30,6 +30,27 @@ const row = (input: {
   away_assocation_team_id: input.awayId,
 })
 
+function parsedTiming(date: string, time: string, timeZone: string) {
+  return parseTeamLinktEvents(
+    {
+      data: [
+        row({
+          id: 99,
+          date,
+          time,
+          epoch: 0,
+          homeId: 892656,
+          home: "The Tax Collectors",
+          awayId: 892655,
+          away: "Cross Bearers",
+        }),
+      ],
+    },
+    "9966",
+    timeZone
+  )[0]
+}
+
 describe("TeamLinkt provider normalization", () => {
   const response = {
     data: [
@@ -69,7 +90,7 @@ describe("TeamLinkt provider normalization", () => {
   }
 
   it("normalizes final, bye, and unreported games without trusting HTML", () => {
-    const events = parseTeamLinktEvents(response, "9966")
+    const events = parseTeamLinktEvents(response, "9966", "America/Toronto")
     const games = selectTeamLinktGames(
       events,
       "892656",
@@ -100,7 +121,7 @@ describe("TeamLinkt provider normalization", () => {
 
   it("derives standings from scored season games and excludes the Bye team", () => {
     const standings = deriveTeamLinktStandings(
-      parseTeamLinktEvents(response, "9966")
+      parseTeamLinktEvents(response, "9966", "America/Toronto")
     )
     expect(standings).toHaveLength(3)
     expect(standings.find((team) => team.teamId === "892656")).toMatchObject({
@@ -113,6 +134,59 @@ describe("TeamLinkt provider normalization", () => {
       form: ["W"],
     })
     expect(standings.some((team) => team.teamName === "Bye")).toBe(false)
+  })
+
+  it("resolves summer and winter wall-clock times with the Toronto UTC offset", () => {
+    expect(
+      parsedTiming("Sun May 31, 2026", "8:35 AM - 9:35 AM", "America/Toronto")
+    ).toMatchObject({
+      scheduledAt: "2026-05-31T08:35:00",
+      displayTime: "08:35",
+      epochSeconds: Date.parse("2026-05-31T12:35:00.000Z") / 1000,
+    })
+    expect(
+      parsedTiming("Sun Jan 11, 2026", "8:35 AM - 9:35 AM", "America/Toronto")
+    ).toMatchObject({
+      scheduledAt: "2026-01-11T08:35:00",
+      displayTime: "08:35",
+      epochSeconds: Date.parse("2026-01-11T13:35:00.000Z") / 1000,
+    })
+  })
+
+  it("resolves the instant from the explicitly requested tenant time zone", () => {
+    expect(
+      parsedTiming("Sun May 31, 2026", "8:35 AM - 9:35 AM", "America/Vancouver")
+        .epochSeconds
+    ).toBe(Date.parse("2026-05-31T15:35:00.000Z") / 1000)
+  })
+
+  it("normalizes midnight and noon before resolving the Toronto instant", () => {
+    expect(
+      parsedTiming("Sun Jan 11, 2026", "12:00 AM - 1:00 AM", "America/Toronto")
+    ).toMatchObject({
+      scheduledAt: "2026-01-11T00:00:00",
+      displayTime: "00:00",
+      epochSeconds: Date.parse("2026-01-11T05:00:00.000Z") / 1000,
+    })
+    expect(
+      parsedTiming("Sun Jan 11, 2026", "12:00 PM - 1:00 PM", "America/Toronto")
+    ).toMatchObject({
+      scheduledAt: "2026-01-11T12:00:00",
+      displayTime: "12:00",
+      epochSeconds: Date.parse("2026-01-11T17:00:00.000Z") / 1000,
+    })
+  })
+
+  it("rejects a nonexistent Toronto wall-clock time during spring forward", () => {
+    expect(() =>
+      parsedTiming("Sun Mar 8, 2026", "2:30 AM - 3:30 AM", "America/Toronto")
+    ).toThrow(/does not exist in America\/Toronto/)
+  })
+
+  it("rejects an ambiguous Toronto wall-clock time during fall back", () => {
+    expect(() =>
+      parsedTiming("Sun Nov 1, 2026", "1:30 AM - 2:30 AM", "America/Toronto")
+    ).toThrow(/is ambiguous in America\/Toronto/)
   })
 })
 

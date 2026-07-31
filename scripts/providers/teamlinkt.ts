@@ -103,9 +103,133 @@ function parseCell(value: string): { name: string; score: number | null } {
   }
 }
 
+interface LocalDateTimeParts {
+  year: number
+  month: number
+  day: number
+  hour: number
+  minute: number
+  second: number
+}
+
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000
+const OFFSET_PROBE_DAYS = [-7, -1, 0, 1, 7]
+
+function utcMilliseconds(parts: LocalDateTimeParts): number {
+  const value = new Date(0)
+  value.setUTCFullYear(parts.year, parts.month - 1, parts.day)
+  value.setUTCHours(parts.hour, parts.minute, parts.second, 0)
+  return value.getTime()
+}
+
+function zonedDateTimeParts(
+  formatter: Intl.DateTimeFormat,
+  instant: number
+): LocalDateTimeParts {
+  const parts = new Map(
+    formatter
+      .formatToParts(instant)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value])
+  )
+  const numeric = (name: keyof LocalDateTimeParts): number => {
+    const value = Number(parts.get(name))
+    if (!Number.isInteger(value)) {
+      throw new Error("Unable to resolve TeamLinkt schedule time zone")
+    }
+    return value
+  }
+  return {
+    year: numeric("year"),
+    month: numeric("month"),
+    day: numeric("day"),
+    hour: numeric("hour"),
+    minute: numeric("minute"),
+    second: numeric("second"),
+  }
+}
+
+function sameDateTime(
+  left: LocalDateTimeParts,
+  right: LocalDateTimeParts
+): boolean {
+  return (
+    left.year === right.year &&
+    left.month === right.month &&
+    left.day === right.day &&
+    left.hour === right.hour &&
+    left.minute === right.minute &&
+    left.second === right.second
+  )
+}
+
+function localDateTimeEpochSeconds(
+  parts: LocalDateTimeParts,
+  timeZone: string,
+  label: string
+): number {
+  const approximateUtc = utcMilliseconds(parts)
+  const canonical = new Date(approximateUtc)
+  if (
+    canonical.getUTCFullYear() !== parts.year ||
+    canonical.getUTCMonth() + 1 !== parts.month ||
+    canonical.getUTCDate() !== parts.day ||
+    canonical.getUTCHours() !== parts.hour ||
+    canonical.getUTCMinutes() !== parts.minute ||
+    canonical.getUTCSeconds() !== parts.second
+  ) {
+    throw new Error("TeamLinkt schedule row has an invalid published date/time")
+  }
+
+  let formatter: Intl.DateTimeFormat
+  try {
+    formatter = new Intl.DateTimeFormat("en-CA-u-ca-gregory-nu-latn", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    })
+  } catch (error) {
+    throw new Error(`TeamLinkt schedule time zone is invalid: ${timeZone}`, {
+      cause: error,
+    })
+  }
+
+  const possibleOffsets = new Set<number>()
+  for (const days of OFFSET_PROBE_DAYS) {
+    const probe = approximateUtc + days * MILLISECONDS_PER_DAY
+    possibleOffsets.add(
+      utcMilliseconds(zonedDateTimeParts(formatter, probe)) - probe
+    )
+  }
+
+  const candidates = [...possibleOffsets]
+    .map((offset) => approximateUtc - offset)
+    .filter((instant) =>
+      sameDateTime(zonedDateTimeParts(formatter, instant), parts)
+    )
+  const uniqueCandidates = [...new Set(candidates)]
+  if (uniqueCandidates.length === 0) {
+    throw new Error(
+      `TeamLinkt schedule time ${label} does not exist in ${timeZone}`
+    )
+  }
+  if (uniqueCandidates.length > 1) {
+    throw new Error(
+      `TeamLinkt schedule time ${label} is ambiguous in ${timeZone}`
+    )
+  }
+  return uniqueCandidates[0] / 1000
+}
+
 function publishedDateTime(
   dateLabel: string,
-  timeLabel: string
+  timeLabel: string,
+  timeZone: string
 ): {
   date: string
   scheduledAt: string
@@ -133,8 +257,16 @@ function publishedDateTime(
   if (!dateMatch || !timeMatch || !months[dateMatch[1]]) {
     throw new Error("TeamLinkt schedule row has an invalid published date/time")
   }
+  const hour12 = Number.parseInt(timeMatch[1], 10)
+  const minute = Number.parseInt(timeMatch[2], 10)
+  if (hour12 < 1 || hour12 > 12 || minute > 59) {
+    throw new Error("TeamLinkt schedule row has an invalid published date/time")
+  }
+  const month = Number.parseInt(months[dateMatch[1]], 10)
+  const day = Number.parseInt(dateMatch[2], 10)
+  const year = Number.parseInt(dateMatch[3], 10)
   const date = `${dateMatch[3]}-${months[dateMatch[1]]}-${dateMatch[2].padStart(2, "0")}`
-  let hour = Number.parseInt(timeMatch[1], 10) % 12
+  let hour = hour12 % 12
   if (timeMatch[3] === "PM") hour += 12
   const displayTime = `${String(hour).padStart(2, "0")}:${timeMatch[2]}`
   const scheduledAt = `${date}T${displayTime}:00`
@@ -142,13 +274,18 @@ function publishedDateTime(
     date,
     displayTime,
     scheduledAt,
-    epochSeconds: new Date(`${scheduledAt}-04:00`).getTime() / 1000,
+    epochSeconds: localDateTimeEpochSeconds(
+      { year, month, day, hour, minute, second: 0 },
+      timeZone,
+      scheduledAt
+    ),
   }
 }
 
 function normalizeEvent(
   raw: TeamLinktEventRow,
-  associationId: string
+  associationId: string,
+  timeZone: string
 ): NormalizedEvent {
   const id = raw["2"].match(/\/event\/\d+\/(\d+)/i)?.[1]
   if (!id) throw new Error("TeamLinkt schedule row is missing an event ID")
@@ -157,7 +294,7 @@ function normalizeEvent(
   if (!home.name || !away.name) {
     throw new Error(`TeamLinkt event ${id} is missing a team identity`)
   }
-  const timing = publishedDateTime(raw["0"], raw["1"])
+  const timing = publishedDateTime(raw["0"], raw["1"], timeZone)
   const venueText = load(`<body>${raw["5"]}</body>`)("body")
     .text()
     .replace(/\s+/g, " ")
@@ -675,14 +812,15 @@ function parseRoster(value: unknown): RosterMember[] {
 
 export function parseTeamLinktEvents(
   value: unknown,
-  associationId: string
+  associationId: string,
+  timeZone: string
 ): NormalizedEvent[] {
   const data = record(value).data
   if (!Array.isArray(data)) {
     throw new Error("TeamLinkt schedule response is missing its data rows")
   }
   return data.map((entry) =>
-    normalizeEvent(entry as TeamLinktEventRow, associationId)
+    normalizeEvent(entry as TeamLinktEventRow, associationId, timeZone)
   )
 }
 
@@ -764,7 +902,11 @@ export async function buildTeamLinktSnapshot(
     ])
   validateTeamIdentity(teamResponse, config)
   const rosterMembers = parseRoster(rosterResponse)
-  const events = parseTeamLinktEvents(scheduleResponse, associationId)
+  const events = parseTeamLinktEvents(
+    scheduleResponse,
+    associationId,
+    config.timezone
+  )
   const standings = deriveTeamLinktStandings(events)
   validatePublishedRecord(homeResponse, standings, teamId)
   let games = selectTeamLinktGames(

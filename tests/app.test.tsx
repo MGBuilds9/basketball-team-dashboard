@@ -75,7 +75,7 @@ describe("selected-team interface", () => {
       state: "verified_exact",
       channelUrl: snapshot.identity.youtubeChannelUrl,
       videoUrl: "https://www.youtube.com/watch?v=6mEdC0PTWgA",
-      videoTitle: "Semi-Uncs vs Test Opponent",
+      videoTitle: `${snapshot.team.name} vs Test Opponent`,
       matchedBy: "date_and_teams",
     })
     render(<GameVideoAction game={ready} />)
