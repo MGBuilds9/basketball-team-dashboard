@@ -18,7 +18,7 @@ const snapshot = parseTeamSnapshotV3(snapshotJson)
 const temporaryDirectories: string[] = []
 
 const mismatches = [
-  ["provider", "teamlinkt"],
+  ["provider", snapshot.identity.provider === "stm" ? "teamlinkt" : "stm"],
   ["leagueId", "different-league"],
   ["seasonId", "different-season"],
   ["teamId", "different-team"],
