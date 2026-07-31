@@ -74,14 +74,13 @@ export async function inspectVendoredArchive(
   const archive = extract()
   const members = new Map<string, Buffer>()
   let totalBytes = 0
-  let failed = false
-  let failure: Error | null = null
+  const state: { failed: boolean; failure?: Error } = { failed: false }
 
   archive.on("entry", (header, stream, next) => {
     const fail = (error: Error) => {
-      if (failed) return
-      failed = true
-      failure = error
+      if (state.failed) return
+      state.failed = true
+      state.failure = error
       stream.resume()
       archive.destroy()
     }
@@ -93,7 +92,8 @@ export async function inspectVendoredArchive(
       fail(new Error(`${trusted.file} contains an unsafe archive member`))
       return
     }
-    if (header.size < 1 || header.size > 512 * 1024) {
+    const headerSize = header.size ?? -1
+    if (headerSize < 1 || headerSize > 512 * 1024) {
       fail(new Error(`${trusted.file} contains an oversized archive member`))
       return
     }
@@ -101,7 +101,7 @@ export async function inspectVendoredArchive(
     const chunks: Buffer[] = []
     let memberBytes = 0
     stream.on("data", (chunk: Buffer) => {
-      if (failed) return
+      if (state.failed) return
       memberBytes += chunk.length
       totalBytes += chunk.length
       if (memberBytes > 512 * 1024 || totalBytes > 2 * 1024 * 1024) {
@@ -112,7 +112,7 @@ export async function inspectVendoredArchive(
     })
     stream.on("error", fail)
     stream.on("end", () => {
-      if (failed) return
+      if (state.failed) return
       members.set(header.name, Buffer.concat(chunks))
       next()
     })
@@ -121,9 +121,9 @@ export async function inspectVendoredArchive(
   try {
     await pipeline(Readable.from(payload), createGunzip(), archive)
   } catch (error) {
-    if (failure) {
+    if (state.failure) {
       throw new Error(
-        `${trusted.file} is not a safe readable package archive: ${failure.message}`,
+        `${trusted.file} is not a safe readable package archive: ${state.failure.message}`,
         {
           cause: error,
         }
@@ -133,7 +133,7 @@ export async function inspectVendoredArchive(
       cause: error,
     })
   }
-  if (failed) {
+  if (state.failed) {
     throw new Error(`${trusted.file} is not a safe readable package archive`)
   }
 

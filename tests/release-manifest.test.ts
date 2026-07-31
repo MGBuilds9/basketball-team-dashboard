@@ -4,7 +4,9 @@ import {
   buildReleaseManifest,
   parseReleaseManifest,
   releaseMatches,
+  verifiedSnapshotContentHash,
 } from "../scripts/release-manifest"
+import snapshotJson from "../data/snapshot.json"
 
 const expected = {
   codeRevision: "a".repeat(40),
@@ -40,6 +42,21 @@ describe("exact deployed release reconciliation", () => {
         codeRevision: "e".repeat(40),
       })
     ).toBe(false)
+  })
+
+  it("rejects publication when semantic snapshot content and its hash diverge", () => {
+    expect(verifiedSnapshotContentHash(snapshotJson)).toBe(
+      snapshotJson.contentHash
+    )
+    expect(() =>
+      verifiedSnapshotContentHash({
+        ...snapshotJson,
+        capabilities: {
+          ...snapshotJson.capabilities,
+          liveScores: !snapshotJson.capabilities.liveScores,
+        },
+      })
+    ).toThrow(/semantic content hash/)
   })
 
   it.each([

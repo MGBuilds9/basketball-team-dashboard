@@ -20,7 +20,7 @@ import {
   Users,
 } from "lucide-react"
 
-import snapshotJson from "../data/snapshot.json"
+import snapshotJson from "../data/snapshot.json" with { type: "json" }
 import { useTheme } from "@/components/theme-provider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -235,46 +235,76 @@ function resultBadge(game: GameRow) {
   )
 }
 
-function GameVideoAction({
+const CHANNEL_ONLY_COPY = {
+  not_found: {
+    badge: "Not uploaded yet",
+    description: "No verified game video is uploaded yet",
+  },
+  ambiguous: {
+    badge: "Upload needs review",
+    description: "The possible game video match needs review",
+  },
+  source_unavailable: {
+    badge: "Upload status unavailable",
+    description: "Game video availability could not be checked",
+  },
+} as const
+
+export function GameVideoAction({
   game,
   size = "sm",
 }: {
   game: GameRow
   size?: "sm" | "default"
 }) {
-  if (game.videoUrl) {
+  const matchup = `${snapshot.team.name} ${
+    game.isHome ? "versus" : "at"
+  } ${game.opponentName}`
+
+  if (game.video.state === "verified_exact") {
     return (
-      <Button asChild size={size} className="video-ready-button">
+      <Button asChild size={size} className="video-ready-button min-h-11">
         <a
-          href={game.videoUrl}
+          href={game.video.videoUrl}
           target="_blank"
           rel="noreferrer"
-          aria-label={`Watch ${snapshot.team.name} ${game.isHome ? "versus" : "at"} ${game.opponentName} on YouTube`}
+          aria-label={`Watch ${matchup} on YouTube`}
+          title={game.video.videoTitle}
         >
-          <CirclePlay />
+          <CirclePlay data-icon="inline-start" />
           Watch game
         </a>
       </Button>
     )
   }
+
+  if (game.video.state === "not_expected") return null
+
+  const copy = CHANNEL_ONLY_COPY[game.video.reason]
+
   return (
-    <Button
-      asChild
-      size={size}
-      variant="secondary"
-      className="video-pending-button"
+    <div
+      className="flex min-h-11 flex-wrap items-center gap-2"
+      data-video-state="channel_only"
     >
-      <a
-        href={snapshot.identity.youtubeChannelUrl}
-        target="_blank"
-        rel="noreferrer"
-        aria-label={`Game video pending; check the ${providerLabel} YouTube channel`}
-        title="The direct game upload is not available yet"
+      <Badge variant="outline">{copy.badge}</Badge>
+      <Button
+        asChild
+        size={size}
+        variant="secondary"
+        className="video-pending-button min-h-11"
       >
-        <CirclePlay />
-        Check channel
-      </a>
-    </Button>
+        <a
+          href={game.video.channelUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`${copy.description} for ${matchup}; open the ${providerLabel} YouTube channel`}
+        >
+          <CirclePlay data-icon="inline-start" />
+          Check channel
+        </a>
+      </Button>
+    </div>
   )
 }
 

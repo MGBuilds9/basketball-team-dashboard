@@ -9,6 +9,7 @@
     "check:bundle": "tsx scripts/check-bundle.ts",
     "fixtures:capture": "tsx scripts/capture-fixtures.ts",
     "lint": "eslint .",
+    "migrate:snapshot": "npm run verify:vendor && tsx scripts/migrate-v2-snapshot.ts",
     "release:manifest": "tsx scripts/release-manifest.ts write",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "import:release": "npm run verify:vendor && tsx scripts/import-team-release.ts",
@@ -16,7 +17,7 @@
     "test": "npm run verify:vendor && vitest run",
     "test:unit": "npm run verify:vendor && vitest run",
     "test:e2e": "npm run verify:vendor && playwright test",
-    "typecheck": "npm run verify:vendor && tsc --noEmit",
+    "typecheck": "npm run verify:vendor && tsc -p tsconfig.app.json && tsc -p tsconfig.node.json",
     "verify:vendor": "tsx scripts/verify-vendor.ts",
     "preview": "vite preview"
   },

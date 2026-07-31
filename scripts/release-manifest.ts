@@ -1,7 +1,12 @@
+import { createHash } from "node:crypto"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 
+import {
+  canonicalSnapshotContentV1,
+  parseTeamSnapshotV3,
+} from "@basketball-os/public-contracts"
 import { z } from "zod"
 
 const revisionSchema = z.union([
@@ -53,14 +58,25 @@ export function releaseMatches(
   )
 }
 
+export function verifiedSnapshotContentHash(input: unknown): string {
+  const snapshot = parseTeamSnapshotV3(input)
+  const computed = createHash("sha256")
+    .update(canonicalSnapshotContentV1(snapshot))
+    .digest("hex")
+  if (computed !== snapshot.contentHash) {
+    throw new Error("Snapshot semantic content hash does not match")
+  }
+  return computed
+}
+
 async function writeManifest(): Promise<void> {
   const snapshot = JSON.parse(
     await fs.readFile(path.join(process.cwd(), "data", "snapshot.json"), "utf8")
-  ) as { contentHash?: unknown }
+  )
   const manifest = buildReleaseManifest({
     codeRevision: process.env.CODE_REVISION ?? "local",
     dataRevision: process.env.DATA_REVISION ?? "local",
-    snapshotContentHash: hashSchema.parse(snapshot.contentHash),
+    snapshotContentHash: verifiedSnapshotContentHash(snapshot),
   })
   const output = path.join(process.cwd(), "dist", "release.json")
   await fs.writeFile(output, `${JSON.stringify(manifest, null, 2)}\n`, {
@@ -73,12 +89,7 @@ async function writeManifest(): Promise<void> {
 
 async function compareManifest(args: string[]): Promise<void> {
   const [manifestPath, codeRevision, dataRevision, snapshotContentHash] = args
-  if (
-    !manifestPath ||
-    !codeRevision ||
-    !dataRevision ||
-    !snapshotContentHash
-  ) {
+  if (!manifestPath || !codeRevision || !dataRevision || !snapshotContentHash) {
     throw new Error(
       "Usage: release-manifest matches <path> <codeRevision> <dataRevision> <snapshotContentHash>"
     )
