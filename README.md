@@ -31,7 +31,7 @@ never committed raw.
 Node 22 is the supported runtime.
 
 ```bash
-npm ci
+npm ci --ignore-scripts
 npm run sync
 npm run dev
 ```

@@ -22,7 +22,6 @@ import {
 
 import snapshotJson from "../data/snapshot.json"
 import { useTheme } from "@/components/theme-provider"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -476,9 +475,7 @@ function RecentFormCard() {
     )
     .slice(-5)
   const maxMargin = Math.max(
-    ...games.map((game) =>
-      Math.abs(game.teamScore! - game.opponentScore!)
-    ),
+    ...games.map((game) => Math.abs(game.teamScore! - game.opponentScore!)),
     10
   )
   return (
@@ -624,9 +621,7 @@ function GameSummary({
 
 function OverviewView() {
   const nextGame = snapshot.games.find((game) => game.state === "scheduled")
-  const latestResult = snapshot.games
-    .filter((game) => game.result)
-    .at(-1)
+  const latestResult = snapshot.games.filter((game) => game.result).at(-1)
   const recent = snapshot.games
     .filter((game) => game.result)
     .slice(-3)
@@ -819,7 +814,7 @@ function StandingsView() {
   return (
     <Card>
       <CardHeader>
-          <CardTitle>{snapshot.team.season} standings</CardTitle>
+        <CardTitle>{snapshot.team.season} standings</CardTitle>
       </CardHeader>
       <CardContent className="px-0">
         <ScrollArea className="w-full">
@@ -870,9 +865,7 @@ function StandingsView() {
                         {row.form.map((result, index) => (
                           <Badge
                             key={`${row.teamId}-${index}`}
-                            variant={
-                              result === "W" ? "default" : "destructive"
-                            }
+                            variant={result === "W" ? "default" : "destructive"}
                             className="size-6 justify-center p-0"
                           >
                             {result}
@@ -1338,11 +1331,6 @@ export default function App() {
       `${snapshot.team.name} schedule, standings, leaders, statistics, box scores, and game videos.`
     )
   }, [])
-  const [stale] = React.useState(
-    () =>
-      Date.now() - new Date(snapshot.generatedAt).getTime() >
-      30 * 60 * 60 * 1000
-  )
   return (
     <TooltipProvider>
       <a href="#main-content" className="skip-link">
@@ -1372,7 +1360,7 @@ export default function App() {
             </div>
             <div className="ml-auto flex items-center gap-1">
               <Badge variant="outline" className="hidden lg:inline-flex">
-                <ShieldCheck /> Live source validated
+                <ShieldCheck /> Validated snapshot
               </Badge>
               <ThemeToggle />
             </div>
@@ -1381,26 +1369,12 @@ export default function App() {
             <div className="page-intro">
               <p>{copy.description}</p>
             </div>
-            {stale && (
-              <Alert variant="destructive" className="mb-6">
-                <Clock3 />
-                <AlertTitle>Source check is stale</AlertTitle>
-                <AlertDescription>
-                  The last validated snapshot is older than 30 hours. The stored
-                  dashboard remains available while the next sync is
-                  investigated.
-                </AlertDescription>
-              </Alert>
-            )}
             <ActiveView route={route} />
             <footer className="app-footer">
               <div>
-                <p className="font-bold">
-                  {snapshot.team.name} Command Center
-                </p>
+                <p className="font-bold">{snapshot.team.name} Command Center</p>
                 <p>
-                  Operational data from {providerLabel}. Unlisted and
-                  noindexed.
+                  Operational data from {providerLabel}. Unlisted and noindexed.
                 </p>
               </div>
               <div className="text-right">
